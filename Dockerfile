@@ -2,34 +2,26 @@
 FROM node:18-alpine
 
 # Create a non-root user (SECURITY BEST PRACTICE #1)
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN adduser -D appuser
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files first (for better caching)
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
+RUN npm install
 
 # Copy application code
 COPY . .
 
 # Change ownership to non-root user
-RUN chown -R nodejs:nodejs /app
+RUN chown -R appuser:appuser /app
 
 # Switch to non-root user (SECURITY BEST PRACTICE #1)
-USER nodejs
+USER appuser
 
 # Expose port
 EXPOSE 3000
-
-# Add health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # Start the application
 CMD ["npm", "start"]
