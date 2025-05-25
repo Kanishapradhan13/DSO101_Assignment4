@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         // Reference stored credentials (SECURITY BEST PRACTICE #2)
-        DOCKER_CREDS = credentials('docker-hub-creds')
+        DOCKER_CREDS = credentials('dockerhub-credentials')
         IMAGE_NAME = 'my-secure-app'
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
