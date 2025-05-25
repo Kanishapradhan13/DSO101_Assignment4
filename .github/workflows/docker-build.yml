@@ -9,8 +9,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Build Docker image
-      run: docker build -t my-secure-app .
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Create .npmrc secret file
+      run: |
+        echo "registry=https://registry.npmjs.org/" > .npmrc
+        echo "//registry.npmjs.org/:_authToken=\${NPM_TOKEN}" >> .npmrc
+    
+    - name: Build Docker image with secrets
+      run: |
+        # Build with Docker secrets (SECURITY BEST PRACTICE #2)
+        # Secrets are not stored in build history or image layers
+        docker buildx build \
+          --secret id=npmrc,src=./.npmrc \
+          -t my-secure-app \
+          --load .
     
     - name: Login to Docker Hub
       if: github.ref == 'refs/heads/main'
@@ -24,3 +38,6 @@ jobs:
       run: |
         docker tag my-secure-app ${{ secrets.DOCKERHUB_USERNAME }}/my-secure-app:latest
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-secure-app:latest
+    
+    - name: Clean up secrets
+      run: rm -f .npmrc

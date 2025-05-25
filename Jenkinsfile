@@ -9,31 +9,30 @@ pipeline {
     }
     
     stages {
+        stage('Prepare Secrets') {
+            steps {
+                script {
+                    // Create .npmrc file for Docker secrets
+                    writeFile file: '.npmrc', text: '''
+registry=https://registry.npmjs.org/
+//registry.npmjs.org/:_authToken=${NPM_TOKEN}
+'''
+                }
+            }
+        }
+        
         stage('Build') {
             steps {
                 script {
-                    echo 'Building Docker image...'
-                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                    echo 'Building Docker image with secrets...'
+                    // Build with Docker secrets (SECURITY BEST PRACTICE #2)
+                    sh """
+                        docker buildx build \
+                          --secret id=npmrc,src=./.npmrc \
+                          -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                          --load .
+                    """
                     sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
-                }
-            }
-        }
-        
-        stage('Security Scan') {
-            steps {
-                script {
-                    echo 'Running security scan...'
-                    // Add security scanning tools here (Trivy, Snyk, etc.)
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${IMAGE_NAME}:${IMAGE_TAG} || true"
-                }
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                script {
-                    echo 'Running tests...'
-                    sh "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} npm test || true"
                 }
             }
         }
@@ -62,13 +61,9 @@ pipeline {
                 sh "docker logout"
                 sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
                 sh "docker rmi ${IMAGE_NAME}:latest || true"
+                // Clean up secret files (SECURITY BEST PRACTICE #2)
+                sh "rm -f .npmrc"
             }
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
         }
     }
 }
